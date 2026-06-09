@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import proxy
 from app.llm.gpt import close_client
+from app.config import settings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -34,3 +35,10 @@ app.include_router(proxy.router)
 @app.get("/health")
 async def health():
     return {"status": "ok", "version": "0.1.0"}
+@app.get("/debug/config")
+async def debug_config():
+    return {
+        "shield_master_key": settings.shield_master_key,
+        "github_pat_set": bool(settings.github_pat),
+        "github_pat_prefix": settings.github_pat[:8] + "..." if settings.github_pat else None,
+    }

@@ -12,7 +12,8 @@ def get_client() -> httpx.AsyncClient:
     global _client
     if _client is None:
         _client = httpx.AsyncClient(
-            timeout=httpx.Timeout(connect=5.0, read=30.0),
+            
+            timeout=httpx.Timeout(30.0, connect=5.0),
             headers={
                 "Authorization": f"Bearer {settings.github_pat}",
                 "Content-Type": "application/json",
