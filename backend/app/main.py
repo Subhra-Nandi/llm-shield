@@ -4,19 +4,24 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routers import proxy
 from app.llm.gpt import close_client
 from app.cache.redis_client import close_redis
+from app.db.session import create_tables, close_db
+from app.observability.metrics import metrics_asgi_app
+from app.routers import stats
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("LLM-Shield proxy starting up...")
+    await create_tables()
     yield
     print("LLM-Shield shutting down...")
     await close_client()
     await close_redis()
+    await close_db()
 
 app = FastAPI(
     title="LLM-Shield",
     description="Semantic proxy and observability layer for LLM APIs",
-    version="0.2.0",
+    version="0.4.0",
     lifespan=lifespan,
 )
 
@@ -27,11 +32,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount Prometheus metrics endpoint
+# Prometheus scrapes this URL every 15 seconds
+app.mount("/metrics", metrics_asgi_app)
+
 app.include_router(proxy.router)
+app.include_router(stats.router)
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "version": "0.2.0"}
+    return {"status": "ok", "version": "0.4.0"}
 
 @app.get("/debug/config")
 async def debug_config():
@@ -40,5 +50,6 @@ async def debug_config():
         "shield_master_key": settings.shield_master_key,
         "github_pat_set": bool(settings.github_pat),
         "redis_url_set": bool(settings.upstash_redis_rest_url),
+        "database_url_set": bool(settings.database_url),
         "cache_threshold": settings.cache_similarity_threshold,
     }

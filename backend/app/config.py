@@ -4,8 +4,15 @@ class Settings(BaseSettings):
     github_pat: str
     shield_master_key: str = "dev-master-key"
     port: int = 8000
+
+    # Redis
     upstash_redis_rest_url: str = ""
     upstash_redis_rest_token: str = ""
+
+    # Postgres
+    database_url: str = ""
+
+    # Cache
     cache_similarity_threshold: float = 0.92
     cache_ttl_seconds: int = 86400
 
