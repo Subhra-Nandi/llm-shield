@@ -12,6 +12,12 @@ class Settings(BaseSettings):
     # Postgres
     database_url: str = ""
 
+    # Gemini API
+    gemini_api_key: str = ""
+    
+    #rate limiting
+    rate_limit_per_minute: int = 10
+    
     # Cache
     cache_similarity_threshold: float = 0.92
     cache_ttl_seconds: int = 86400

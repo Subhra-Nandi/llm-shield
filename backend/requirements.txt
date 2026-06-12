@@ -16,3 +16,5 @@ torch==2.4.1
 sqlalchemy==2.0.32
 asyncpg==0.29.0
 prometheus-client==0.20.0
+google-generativeai==0.7.2
+pybreaker==1.2.0

@@ -3,12 +3,12 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from typing import Optional
 from app.middleware.auth import verify_api_key
-from app.llm.gpt import call_gpt4o
+from app.middleware.rate_limit import check_rate_limit
+from app.llm.router import call_llm_with_fallback
 from app.cache.semantic import embed_text, search_cache, store_in_cache
 from app.security.pii import redact_pii
 from app.security.injection import is_injection
 from app.observability.logger import log_request
-import httpx
 
 router = APIRouter()
 
@@ -22,6 +22,7 @@ class ChatRequest(BaseModel):
     temperature: Optional[float] = None
     max_tokens: Optional[int] = None
 
+
 @router.post("/v1/chat/completions")
 async def proxy_chat(
     request: ChatRequest,
@@ -30,12 +31,17 @@ async def proxy_chat(
 ):
     start = time.monotonic()
 
+    # ── STEP 1: rate limiting ─────────────────────────────────────────────
+    # Runs first — cheapest check, no ML, no DB, just Redis
+    await check_rate_limit(api_key)
+
+    # ── STEP 2: extract user message ──────────────────────────────────────
     user_messages = [m for m in request.messages if m.role == "user"]
     if not user_messages:
         raise HTTPException(status_code=400, detail="No user message found")
     prompt_text = user_messages[-1].content
 
-    # ── STEP 1: PII redaction ─────────────────────────────────────────────
+    # ── STEP 3: PII redaction ─────────────────────────────────────────────
     redacted_prompt, pii_found = redact_pii(prompt_text)
     if pii_found:
         print(f"PII redacted. Original: {prompt_text[:80]}")
@@ -45,7 +51,7 @@ async def proxy_chat(
     else:
         messages = list(request.messages)
 
-    # ── STEP 2: injection detection ───────────────────────────────────────
+    # ── STEP 4: injection detection ───────────────────────────────────────
     injection_detected, reason = is_injection(prompt_text)
     if injection_detected:
         latency_ms = int((time.monotonic() - start) * 1000)
@@ -70,10 +76,10 @@ async def proxy_chat(
             }
         )
 
-    # ── STEP 3: embed ─────────────────────────────────────────────────────
+    # ── STEP 5: embed ─────────────────────────────────────────────────────
     query_embedding = await embed_text(redacted_prompt)
 
-    # ── STEP 4: cache check ───────────────────────────────────────────────
+    # ── STEP 6: cache check ───────────────────────────────────────────────
     cached = await search_cache(query_embedding)
     if cached:
         latency_ms = int((time.monotonic() - start) * 1000)
@@ -97,38 +103,36 @@ async def proxy_chat(
         }
         return cached
 
-    # ── STEP 5: call GPT-4o ───────────────────────────────────────────────
+    # ── STEP 7: call LLM (with automatic failover) ────────────────────────
     try:
         messages_as_dicts = [m.model_dump() for m in messages]
-        gpt_response = await call_gpt4o(messages_as_dicts, model=request.model)
-    except httpx.TimeoutException:
-        raise HTTPException(
-            status_code=504,
-            detail={"error": "upstream_timeout", "message": "GPT-4o did not respond in time"}
+        llm_response, provider_used = await call_llm_with_fallback(
+            messages_as_dicts,
+            model=request.model,
         )
-    except httpx.HTTPStatusError as e:
+    except Exception as e:
         raise HTTPException(
             status_code=502,
             detail={"error": "upstream_error", "message": str(e)}
         )
 
-    # ── STEP 6: store in cache ────────────────────────────────────────────
-    await store_in_cache(redacted_prompt, query_embedding, gpt_response)
+    # ── STEP 8: store in cache ────────────────────────────────────────────
+    await store_in_cache(redacted_prompt, query_embedding, llm_response)
 
-    # ── STEP 7: extract token usage ───────────────────────────────────────
-    usage = gpt_response.get("usage", {})
+    # ── STEP 9: extract token usage ───────────────────────────────────────
+    usage = llm_response.get("usage", {})
     prompt_tokens = usage.get("prompt_tokens", 0)
     completion_tokens = usage.get("completion_tokens", 0)
-    actual_model = gpt_response.get("model", request.model)
+    actual_model = llm_response.get("model", request.model)
 
     latency_ms = int((time.monotonic() - start) * 1000)
 
-    # ── STEP 8: log async (never blocks response) ─────────────────────────
+    # ── STEP 10: async log ────────────────────────────────────────────────
     background_tasks.add_task(
         log_request,
         api_key_id=api_key,
         model=actual_model,
-        provider_used="gpt-4o",
+        provider_used=provider_used,
         prompt_tokens=prompt_tokens,
         completion_tokens=completion_tokens,
         latency_ms=latency_ms,
@@ -137,12 +141,12 @@ async def proxy_chat(
         pii_detected=pii_found,
     )
 
-    gpt_response["shield"] = {
+    llm_response["shield"] = {
         "latency_ms": latency_ms,
         "cache_hit": False,
         "pii_redacted": pii_found,
-        "provider": "gpt-4o",
+        "provider": provider_used,
         "prompt_tokens": prompt_tokens,
         "completion_tokens": completion_tokens,
     }
-    return gpt_response
+    return llm_response
