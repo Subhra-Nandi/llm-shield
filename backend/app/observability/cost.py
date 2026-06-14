@@ -9,7 +9,6 @@ PRICE_TABLE = {
         "input":  Decimal("0.000005"),
         "output": Decimal("0.000015"),
     },
-    # You can remove the hardcoded qwen3-235b block since we made it dynamic
 }
 
 DEFAULT_PRICE = {
@@ -18,15 +17,11 @@ DEFAULT_PRICE = {
 }
 
 def calculate_cost(model: str, prompt_tokens: int, completion_tokens: int) -> Decimal:
-    model_lower = model.lower()
-    
-    # 💡 SMART CATCH: If the model name contains "free" or is explicitly the cache
-    if "free" in model_lower or model_lower == "cache":
+    # Free tier models and cache hits cost $0
+    if "free" in model.lower() or model == "cache" or model == "blocked":
         return Decimal("0.0")
 
-    # Otherwise, look up the price or use the GPT-4o default
     price = PRICE_TABLE.get(model, DEFAULT_PRICE)
-    
     return (
         Decimal(prompt_tokens) * price["input"] +
         Decimal(completion_tokens) * price["output"]

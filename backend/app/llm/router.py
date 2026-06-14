@@ -1,6 +1,6 @@
 import httpx
 from app.llm.gpt import call_gpt4o
-from app.llm.qwen import call_qwen
+from app.llm.openrouter import call_openrouter
 
 _failure_count = 0
 _circuit_open = False
@@ -31,26 +31,22 @@ async def call_llm_with_fallback(
             return response, "gpt-4o"
 
         except httpx.TimeoutException:
-            print("GPT-4o timeout — falling back to OpenRouter Free")
+            print("GPT-4o timeout — falling back to OpenRouter free")
             _record_failure()
 
         except httpx.HTTPStatusError as e:
             if e.response.status_code >= 500:
-                print(f"GPT-4o {e.response.status_code} — falling back to OpenRouter Free")
+                print(f"GPT-4o {e.response.status_code} — falling back to OpenRouter free")
                 _record_failure()
             else:
                 raise
 
         except Exception as e:
-            print(f"GPT-4o error: {e} — falling back to OpenRouter Free")
+            print(f"GPT-4o error: {e} — falling back to OpenRouter free")
             _record_failure()
     else:
-        print("Circuit breaker OPEN — routing directly to OpenRouter Free")
+        print("Circuit breaker OPEN — routing directly to OpenRouter free")
 
-    # Fallback to OpenRouter
-    response = await call_qwen(messages, model)
-    
-    # 💡 Dynamically extract the exact model OpenRouter chose for the free tier
-    actual_fallback_model = response.get("model", "openrouter-free-fallback")
-    
-    return response, actual_fallback_model
+    # Fallback — actual model name comes back dynamically
+    response, actual_model = await call_openrouter(messages)
+    return response, actual_model

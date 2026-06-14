@@ -3,11 +3,6 @@ from app.config import settings
 
 OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
 
-# 💡 BEST PRACTICE: Use the dynamic free router. 
-# It guarantees a 100% free model and prevents 404 crashes when models rotate.
-# (If you absolutely MUST force a Qwen model, use "qwen/qwen3-coder:free" instead)
-FALLBACK_MODEL = "openrouter/free"
-
 _client: httpx.AsyncClient | None = None
 
 def get_client() -> httpx.AsyncClient:
@@ -18,20 +13,23 @@ def get_client() -> httpx.AsyncClient:
             headers={
                 "Authorization": f"Bearer {settings.openrouter_api_key}",
                 "Content-Type": "application/json",
-                "HTTP-Referer": "https://llm-shield.dev",  
+                "HTTP-Referer": "https://llm-shield.dev",
                 "X-Title": "LLM-Shield",
             }
         )
     return _client
 
-async def call_qwen(messages: list[dict], original_model: str = "gpt-4o") -> dict:
+async def call_openrouter(messages: list[dict]) -> tuple[dict, str]:
     """
-    Call OpenRouter's free tier. Returns OpenAI-format response.
+    Call the best currently available free model on OpenRouter.
+    openrouter/free dynamically routes to whichever top open-source
+    model is free at this moment — no hardcoded model slug needed.
+    Returns (response_dict, actual_model_name_used).
     """
     client = get_client()
 
     payload = {
-        "model": FALLBACK_MODEL,
+        "model": "openrouter/auto",   # auto picks best free model available
         "messages": messages,
     }
 
@@ -45,6 +43,5 @@ async def call_qwen(messages: list[dict], original_model: str = "gpt-4o") -> dic
         )
 
     data = response.json()
-    # We remove the hardcoded data["model"] = "qwen3-235b" 
-    # so we can dynamically return whatever free model OpenRouter actually used!
-    return data
+    actual_model = data.get("model", "openrouter-free")
+    return data, actual_model
