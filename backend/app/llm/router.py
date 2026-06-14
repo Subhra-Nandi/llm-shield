@@ -1,5 +1,6 @@
 import httpx
 from app.llm.gpt import call_gpt4o
+from app.llm.qwen import call_qwen
 
 _failure_count = 0
 _circuit_open = False
@@ -28,18 +29,28 @@ async def call_llm_with_fallback(
             response = await call_gpt4o(messages, model)
             _record_success()
             return response, "gpt-4o"
+
         except httpx.TimeoutException:
-            print("GPT-4o timeout")
+            print("GPT-4o timeout — falling back to OpenRouter Free")
             _record_failure()
+
         except httpx.HTTPStatusError as e:
             if e.response.status_code >= 500:
-                print(f"GPT-4o {e.response.status_code} error")
+                print(f"GPT-4o {e.response.status_code} — falling back to OpenRouter Free")
                 _record_failure()
             else:
                 raise
-    else:
-        print("Circuit breaker OPEN")
 
-    # Gemini fallback disabled until quota resets
-    # Re-enable by importing and calling call_gemini here
-    raise Exception("GPT-4o unavailable and Gemini quota exhausted — try again later")
+        except Exception as e:
+            print(f"GPT-4o error: {e} — falling back to OpenRouter Free")
+            _record_failure()
+    else:
+        print("Circuit breaker OPEN — routing directly to OpenRouter Free")
+
+    # Fallback to OpenRouter
+    response = await call_qwen(messages, model)
+    
+    # 💡 Dynamically extract the exact model OpenRouter chose for the free tier
+    actual_fallback_model = response.get("model", "openrouter-free-fallback")
+    
+    return response, actual_fallback_model

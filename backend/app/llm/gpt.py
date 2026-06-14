@@ -1,7 +1,7 @@
 import httpx
 from app.config import settings
 
-AZURE_ENDPOINT = "https://models.inference.ai.azure.com/chat/completions"
+AZURE_ENDPOINT = "https://invalid.example.com/chat/completions"
 
 # Reusable async client — created once, shared across all requests
 # Never create httpx.AsyncClient() inside the handler — that opens a new
