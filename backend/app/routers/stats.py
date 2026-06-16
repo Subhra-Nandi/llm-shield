@@ -1,32 +1,22 @@
 from fastapi import APIRouter
-from sqlalchemy import select, func, text, Integer
+from sqlalchemy import select, func, Integer
+from sqlalchemy.sql.expression import cast
 from app.db.session import AsyncSessionLocal
 from app.db.models import Request
-
 
 router = APIRouter()
 
 @router.get("/stats")
 async def get_stats():
-    """
-    Aggregate stats for the dashboard.
-    All computed in one SQL query — no Python loops.
-    """
     async with AsyncSessionLocal() as session:
         result = await session.execute(
             select(
                 func.count(Request.id).label("total_requests"),
-                func.sum(
-                    func.cast(Request.cache_hit, Integer)
-                ).label("cache_hits"),
+                func.sum(cast(Request.cache_hit, Integer)).label("cache_hits"),
                 func.sum(Request.cost_usd).label("total_cost_usd"),
                 func.avg(Request.latency_ms).label("avg_latency_ms"),
-                func.sum(
-                    func.cast(Request.was_blocked, Integer)
-                ).label("total_blocked"),
-                func.sum(
-                    func.cast(Request.pii_detected, Integer)
-                ).label("total_pii_detected"),
+                func.sum(cast(Request.was_blocked, Integer)).label("total_blocked"),
+                func.sum(cast(Request.pii_detected, Integer)).label("total_pii_detected"),
             )
         )
         row = result.one()

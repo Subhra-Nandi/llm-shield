@@ -7,6 +7,7 @@ from app.cache.redis_client import close_redis
 from app.db.session import create_tables, close_db
 from app.observability.metrics import metrics_asgi_app
 from app.routers import stats
+from app.routers import auth
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -38,6 +39,7 @@ app.mount("/metrics", metrics_asgi_app)
 
 app.include_router(proxy.router)
 app.include_router(stats.router)
+app.include_router(auth.router)
 
 @app.get("/health")
 async def health():
