@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Send, Loader, ShieldAlert, Eye, Zap } from 'lucide-react'
 import api from '../api/client'
+import ReactMarkdown from 'react-markdown'
 
 function Badge({ type, label }) {
   const map = {
@@ -45,7 +46,7 @@ function Bubble({ msg }) {
         fontSize: '1rem',
         lineHeight: 1.65,
       }}>
-        {msg.content}
+        <ReactMarkdown>{msg.content}</ReactMarkdown>
       </div>
 
       {msg.meta && (

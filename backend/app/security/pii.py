@@ -19,7 +19,6 @@ ENTITIES_TO_DETECT = [
     "CREDIT_CARD",
     "US_SSN",
     "IP_ADDRESS",
-    "LOCATION",
     "URL",
 ]
 
