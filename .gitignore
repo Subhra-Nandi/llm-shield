@@ -1,15 +1,37 @@
-# Virtual Environment
-.venv/
-venv/
-env/
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+*.egg-info/
+.eggs/
 
-# Environment Variables & Secrets
+# Environment
 .env
-secret.json
+*.env.local
 
-# IDEs and System files
+# Test output
+backend/tests/results*.csv
+backend/tests/results*/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.env.local
+frontend/.env.production
+
+# IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Docker
+*.log
