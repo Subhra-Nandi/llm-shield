@@ -1,13 +1,12 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import proxy
+from app.routers import proxy, stats, auth
 from app.llm.gpt import close_client
 from app.cache.redis_client import close_redis
 from app.db.session import create_tables, close_db
 from app.observability.metrics import metrics_asgi_app
-from app.routers import stats
-from app.routers import auth
+import os
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -22,28 +21,28 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="LLM-Shield",
     description="Semantic proxy and observability layer for LLM APIs",
-    version="0.4.0",
+    version="1.0.0",
     lifespan=lifespan,
 )
 
+# CORS — allow frontend domain in production
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Mount Prometheus metrics endpoint
-# Prometheus scrapes this URL every 15 seconds
 app.mount("/metrics", metrics_asgi_app)
-
 app.include_router(proxy.router)
 app.include_router(stats.router)
 app.include_router(auth.router)
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "version": "0.4.0"}
+    return {"status": "ok", "version": "1.0.0"}
 
 @app.get("/debug/config")
 async def debug_config():
