@@ -7,8 +7,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Use production requirements (no torch/transformers = much smaller image)
-COPY requirements-prod.txt .
-RUN pip install --no-cache-dir -r requirements-prod.txt
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Download small spaCy model only (12MB vs 700MB for lg)
 RUN python -m spacy download en_core_web_sm
