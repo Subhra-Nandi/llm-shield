@@ -1,24 +1,21 @@
-
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Combine system installation and cache cleanup in a single layer to save disk/RAM footprint
+# Install system utilities safely
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+# Path-independent copy pattern
+COPY ./requirements.txt /app/requirements.txt
 
-# Use --no-cache-dir and limit pip's memory allocation 
-RUN pip install --no-cache-dir --network-timeout 100 -r requirements.txt
+RUN pip install --no-cache-dir --network-timeout 100 -r /app/requirements.txt
 
-# Download Spacy model without keeping extraction caches
 RUN python -m spacy download en_core_web_lg --no-cache-dir
 
-# Pre-download the HuggingFace transformer pipeline securely
 RUN python -c "from transformers import pipeline; pipeline('text-classification', model='protectai/deberta-v3-base-prompt-injection-v2', device=-1)"
 
 COPY . .
