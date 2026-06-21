@@ -1,17 +1,16 @@
+
 FROM python:3.11-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
-    gcc g++ curl \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y gcc g++ curl && rm -rf /var/lib/apt/lists/*
 
-# Use production requirements (no torch/transformers = much smaller image)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Download small spaCy model only (12MB vs 700MB for lg)
-RUN python -m spacy download en_core_web_sm
+RUN python -m spacy download en_core_web_lg
+
+RUN python -c "from transformers import pipeline; pipeline('text-classification', model='protectai/deberta-v3-base-prompt-injection-v2', device=-1)"
 
 COPY . .
 
