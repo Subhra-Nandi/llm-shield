@@ -9,10 +9,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Path-independent copy pattern
-COPY ./requirements.txt /app/requirements.txt
+# Since Root Directory is 'backend', requirements.txt is directly in the build root
+COPY requirements.txt .
 
-RUN pip install --no-cache-dir --network-timeout 100 -r /app/requirements.txt
+RUN pip install --no-cache-dir --network-timeout 100 -r requirements.txt
 
 RUN python -m spacy download en_core_web_lg --no-cache-dir
 
